@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>School Flow — Home</title>
+  <meta name="description" content="School Flow Home" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./assets/css/home.css" />
+</head>
+<body>
+  <div class="sidebar">
+    <div class="brand" aria-label="School Flow">
+      <div class="logo" aria-hidden="true">SF</div>
+      <h1>School Flow</h1>
+    </div>
+    <section id="duesPanel" class="dues-panel" aria-label="Upcoming dues">
+      <h2>Your upcoming dues</h2>
+      <div class="empty">No dues to show.</div>
+    </section>
+  </div>
+  <!-- Centered join box overlay -->
+  <div class="join-overlay" aria-label="Join group panel">
+    <section class="join-group" aria-label="Join an existing group">
+      <h2>Join a Group</h2>
+      <div class="field">
+        <label for="groupCodeInput">Group Code</label>
+        <input id="groupCodeInput" name="groupCode" type="text" placeholder="e.g. ABC123" autocomplete="off" aria-describedby="joinHelp" />
+        <div id="joinHelp" class="muted" style="font-size:0.7rem;">Enter the group code provided by an organizer.</div>
+      </div>
+      <button id="joinGroupBtn" class="join" type="button" disabled>Join Group</button>
+      <div id="joinStatus" class="join-status" role="status"></div>
+    </section>
+  </div>
+  <div class="user-menu" id="userMenu" hidden aria-label="User actions">
+    <button id="createGroupBtn" class="create-group-btn" type="button" aria-label="Create a new group">Create Group</button>
+    <button id="myGroupsBtn" class="create-group-btn" type="button" aria-label="My groups">My Groups</button>
+    <button id="avatarBtn" class="avatar-btn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+      <img id="avatarImg" class="avatar-img" alt="User avatar" src="" loading="lazy" decoding="async" />
+    </button>
+    <div id="dropdown" class="dropdown" role="menu" aria-label="User menu">
+      <header>Account</header>
+      <div class="info">
+        <strong id="ddName">User</strong>
+        <span id="ddEmail" class="muted" style="font-size:0.75rem;"></span>
+      </div>
+      <button id="logoutBtn" class="menu-item" role="menuitem" type="button">Sign out</button>
+    </div>
+  </div>
+  <div id="createGroupModal" class="modal-overlay" aria-modal="true" role="dialog" aria-labelledby="createGroupTitle" aria-hidden="true">
+    <div class="modal">
+      <h2 id="createGroupTitle">Create Group</h2>
+      <p class="muted" style="margin:0;">Set up a new group. You'll be the admin. Share the generated code so others can join.</p>
+      <div class="field">
+        <label for="groupNameInput">Group Name (optional)</label>
+        <input id="groupNameInput" type="text" placeholder="e.g. Math Club" maxlength="60" />
+      </div>
+      <div id="createStatus" class="create-status" role="status"></div>
+      <div id="createdCodeWrap" style="display:none; flex-direction:column; gap:8px;">
+        <label style="font-size:0.65rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--muted);">Join Code</label>
+        <div class="code-box"><span id="createdCode">------</span></div>
+      </div>
+      <div class="modal-actions">
+        <button id="confirmCreateGroupBtn" type="button">Create</button>
+        <button id="closeCreateModalBtn" class="secondary" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+  <noscript>This page requires JavaScript.</noscript>
+  <script type="module" src="./assets/js/app.js"></script>
+  <script>
+     const avatarBtn = document.getElementById('avatarBtn');
+     const dropdown = document.getElementById('dropdown');
+     const logoutBtn = document.getElementById('logoutBtn');
+     const createGroupBtn = document.getElementById('createGroupBtn');
+     const groupCodeInput = document.getElementById('groupCodeInput');
+     const joinGroupBtn = document.getElementById('joinGroupBtn');
+     const joinStatus = document.getElementById('joinStatus');
+
+     const createGroupModal = document.getElementById('createGroupModal');
+     const confirmCreateGroupBtn = document.getElementById('confirmCreateGroupBtn');
+     const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
+     const groupNameInput = document.getElementById('groupNameInput');
+     const createStatus = document.getElementById('createStatus');
+     const createdCodeWrap = document.getElementById('createdCodeWrap');
+     const createdCodeSpan = document.getElementById('createdCode');
+
+    function setJoinStatus(msg, isError=false){ if(!joinStatus) return; joinStatus.textContent = msg || ''; joinStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'; }
+    function setCreateStatus(msg, isError=false){ if(!createStatus) return; createStatus.textContent = msg || ''; createStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'; }
+
+    function openMenu() { dropdown.classList.add('open'); avatarBtn?.setAttribute('aria-expanded','true'); document.addEventListener('click', outsideClose); document.addEventListener('keydown', escClose); }
+    function closeMenu() { dropdown.classList.remove('open'); avatarBtn?.setAttribute('aria-expanded','false'); document.removeEventListener('click', outsideClose); document.removeEventListener('keydown', escClose); }
+    function toggleMenu() { dropdown.classList.contains('open') ? closeMenu() : openMenu(); }
+    function outsideClose(e){ if(!dropdown.contains(e.target) && e.target !== avatarBtn && !avatarBtn?.contains(e.target)) closeMenu(); }
+    function escClose(e){ if(e.key === 'Escape') closeMenu(); }
+    avatarBtn?.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
+
+    logoutBtn?.addEventListener('click', async () => {
+      logoutBtn.disabled = true;
+      try { await window.doSignOut(); location.replace('index.html'); }
+      catch (e){ console.error('Sign out failed', e); }
+      finally { logoutBtn.disabled = false; }
+    });
+
+    const readyInterval = setInterval(() => {
+      if (window.firestoreHelpers && window.currentUser !== undefined) {
+        clearInterval(readyInterval);
+        if (window.currentUser) document.getElementById('userMenu').hidden = false;
+      }
+    }, 200);
+
+    const myGroupsBtn = document.getElementById('myGroupsBtn');
+    myGroupsBtn?.addEventListener('click', () => { window.location.href = 'my-groups.html'; });
+
+    if (createGroupBtn) createGroupBtn.onclick = () => openCreateModal();
+    document.addEventListener('click', (e) => { const btn = e.target && e.target.closest && e.target.closest('#createGroupBtn'); if (btn) openCreateModal(); });
+
+    groupCodeInput?.addEventListener('input', () => { const v = groupCodeInput.value.trim(); joinGroupBtn.disabled = v.length === 0; setJoinStatus(''); });
+    joinGroupBtn?.addEventListener('click', async () => {
+      const code = groupCodeInput.value.trim(); if(!code) return; joinGroupBtn.disabled = true; setJoinStatus('Attempting to join group…');
+      try {
+        const res = await window.firestoreHelpers.joinGroup(code);
+        setJoinStatus(`Joined group ${code}!`, false);
+        window.location.href = `group.html?code=${encodeURIComponent(code)}`;
+      } catch(e){ console.error(e); setJoinStatus(e?.message || 'Failed to join group.', true); }
+      finally { joinGroupBtn.disabled = false; }
+    });
+
+    function openCreateModal(){ createGroupModal.style.display='grid'; createGroupModal.setAttribute('aria-hidden','false'); groupNameInput.value=''; createdCodeWrap.style.display='none'; createdCodeSpan.textContent='------'; setCreateStatus(''); confirmCreateGroupBtn.disabled=false; setTimeout(()=> { try{ groupNameInput.focus(); }catch(e){} }, 60); }
+    function closeCreateModal(){ createGroupModal.style.display='none'; createGroupModal.setAttribute('aria-hidden','true'); }
+
+    async function createGroup() {
+      if (!window.currentUser) throw new Error('Not signed in');
+      if (!window.firestoreHelpers) throw new Error('Database helpers not ready');
+      const name = groupNameInput.value.trim();
+      return await window.firestoreHelpers.createGroup(name);
+    }
+
+    confirmCreateGroupBtn?.addEventListener('click', async () => {
+      if (!window.currentUser) { setCreateStatus('Not signed in.', true); return; }
+      const prevDisplay = createGroupModal.style.display;
+      createdCodeSpan.textContent = '';
+      if (createdCodeWrap) createdCodeWrap.style.display = 'none';
+      createGroupModal.style.display = 'none';
+      try {
+        const res = await createGroup();
+        window.location.replace(`group.html?code=${encodeURIComponent(res.code)}`);
+      } catch (err) {
+        createGroupModal.style.display = prevDisplay || 'grid';
+        setCreateStatus(err?.message || 'Failed to create group.', true);
+      }
+    });
+    closeCreateModalBtn?.addEventListener('click', () => closeCreateModal());
+  </script>
+ </body>
+ </html>

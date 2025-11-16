@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Group Management</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./assets/css/group.css" />
+</head>
+<body>
+  <!-- user menu (avatar + dropdown) -->
+  <div class="user-menu" id="userMenu" hidden aria-label="User actions">
+    <button id="avatarBtn" class="avatar-btn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+      <img id="avatarImg" class="avatar-img" alt="User avatar" src="" loading="lazy" decoding="async" />
+    </button>
+    <div id="dropdown" class="dropdown" role="menu" aria-label="User menu">
+      <header>Account</header>
+      <div class="info">
+        <strong id="ddName">User</strong>
+        <span id="ddEmail" class="muted" style="font-size:0.8rem"></span>
+      </div>
+      <button id="logoutBtn" class="menu-item" role="menuitem" type="button">Sign out</button>
+    </div>
+  </div>
+
+  <main class="card">
+    <div class="group-header">
+      <div class="group-meta">
+        <div class="brand"><div class="logo">SF</div></div>
+        <div>
+          <h1 id="groupName">Group</h1>
+          <div class="muted">Owner: <span id="groupOwner">—</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="backBtn" class="secondary" type="button">Back</button>
+        <div class="code" id="groupCode">------</div>
+        <button id="copyGroupCodeBtn" class="secondary" type="button" aria-label="Copy join code">Copy</button>
+      </div>
+    </div>
+
+    <section style="margin-top:22px;">
+      <h2>Members</h2>
+      <div id="membersList" class="members"><div class="muted">Loading…</div></div>
+    </section>
+
+    <section style="margin-top:18px;">
+      <button id="leaveGroupBtn" class="secondary">Leave Group</button>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/js/app.js"></script>
+  <script>
+    // Read code from query string
+    function qs(name){ const params = new URLSearchParams(location.search); return params.get(name); }
+    const code = qs('code');
+    const groupNameEl = document.getElementById('groupName');
+    const groupOwnerEl = document.getElementById('groupOwner');
+    const groupCodeEl = document.getElementById('groupCode');
+    const membersList = document.getElementById('membersList');
+    const copyBtn = document.getElementById('copyGroupCodeBtn');
+    const leaveBtn = document.getElementById('leaveGroupBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    // Dropdown elements
+    const userMenu = document.getElementById('userMenu');
+    const avatarBtn = document.getElementById('avatarBtn');
+    const avatarImg = document.getElementById('avatarImg');
+    const dropdown = document.getElementById('dropdown');
+    const ddName = document.getElementById('ddName');
+    const ddEmail = document.getElementById('ddEmail');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    async function load() {
+      if (!code) { membersList.innerHTML = '<div class="muted">No code provided.</div>'; return; }
+      groupCodeEl.textContent = code;
+      try {
+        if (!window.firestoreHelpers) throw new Error('Helpers not ready');
+        const res = await window.firestoreHelpers.getGroup(code);
+        const data = res.data;
+        groupNameEl.textContent = data.name || 'Untitled Group';
+        groupOwnerEl.textContent = data.ownerDisplayName || data.ownerUid || '—';
+        membersList.innerHTML = '';
+        const memberUids = Array.isArray(data.members) ? data.members : [];
+        if (memberUids.length === 0) {
+          membersList.innerHTML = '<div class="muted">No members</div>';
+        } else {
+          // Fetch profiles for members (may return nulls)
+          let profiles = {};
+          try {
+            if (window.firestoreHelpers && typeof window.firestoreHelpers.getUsers === 'function') {
+              profiles = await window.firestoreHelpers.getUsers(memberUids);
+            }
+          } catch (e) { /* non-blocking: we'll render UIDs */ }
+
+          memberUids.forEach(uid => {
+            const profile = profiles[uid] || {};
+            const row = document.createElement('div'); row.className = 'member';
+            const left = document.createElement('div'); left.className = 'member-left';
+            const img = document.createElement('img'); img.className = 'member-avatar';
+            if (profile && profile.photoURL) img.src = profile.photoURL; else img.classList.add('member-avatar--placeholder');
+            const label = document.createElement('div'); label.className = 'member-label';
+            const title = document.createElement('div'); title.textContent = (profile && profile.displayName) ? profile.displayName : uid;
+            const sub = document.createElement('div'); sub.className = 'muted member-sub'; sub.textContent = (profile && profile.email) ? profile.email : '';
+             label.appendChild(title); if (sub.textContent) label.appendChild(sub);
+             left.appendChild(img); left.appendChild(label);
+             row.appendChild(left);
+             membersList.appendChild(row);
+          });
+        }
+      } catch (e) { membersList.innerHTML = `<div class="muted">${e?.message||'Failed to load group'}</div>`; }
+    }
+
+    // Copy button handler
+    copyBtn?.addEventListener('click', async () => {
+      const txt = groupCodeEl?.textContent?.trim() || '';
+      if (!txt) return;
+      try {
+        await navigator.clipboard.writeText(txt);
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.disabled = true;
+        setTimeout(() => { copyBtn.textContent = orig; copyBtn.disabled = false; }, 1200);
+      } catch (err) {
+        alert('Copy failed — use Ctrl+C');
+      }
+    });
+
+    // Back to home
+    backBtn?.addEventListener('click', () => { window.location.href = 'home.html'; });
+
+    // Leave group (placeholder)
+    leaveBtn?.addEventListener('click', async () => {
+      if (!confirm('Leave this group?')) return;
+      try {
+        alert('Leave group is not implemented yet.');
+      } catch (e) { alert('Failed to leave group'); }
+    });
+
+    // Dropdown handlers
+    function openMenu() { dropdown.classList.add('open'); avatarBtn.setAttribute('aria-expanded','true'); document.addEventListener('click', outsideClose); document.addEventListener('keydown', escClose); }
+    function closeMenu() { dropdown.classList.remove('open'); avatarBtn.setAttribute('aria-expanded','false'); document.removeEventListener('click', outsideClose); document.removeEventListener('keydown', escClose); }
+    function toggleMenu() { dropdown.classList.contains('open') ? closeMenu() : openMenu(); }
+    function outsideClose(e){ if(!dropdown.contains(e.target) && e.target !== avatarBtn && !avatarBtn.contains(e.target)) closeMenu(); }
+    function escClose(e){ if(e.key === 'Escape') closeMenu(); }
+    avatarBtn?.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
+
+    logoutBtn?.addEventListener('click', async () => {
+      try { await window.doSignOut(); location.replace('index.html'); }
+      catch (e) { console.error('Sign out failed', e); }
+    });
+
+    // Wait for helpers and user to be populated, then load group and populate user UI
+    const readyInterval = setInterval(() => {
+      if (window.firestoreHelpers && window.currentUser !== undefined) {
+        clearInterval(readyInterval);
+        // Populate account info
+        if (window.currentUser) {
+          userMenu.hidden = false;
+          ddName.textContent = window.currentUser.displayName || 'Unnamed';
+          ddEmail.textContent = window.currentUser.email || '';
+          if (window.currentUser.photoURL) {
+            avatarImg.src = window.currentUser.photoURL;
+            avatarImg.alt = (window.currentUser.displayName || 'User') + ' avatar';
+          }
+        }
+        load();
+      }
+    }, 200);
+  </script>
+</body>
+</html>

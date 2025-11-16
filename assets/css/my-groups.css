@@ -1,0 +1,10 @@
+.card { width: min(92vw, 960px); padding: 28px; margin: 32px auto; }
+.group-row { display:flex; align-items:center; gap:12px; padding:10px; border-radius:10px; background:rgba(255,255,255,0.02); margin-bottom:10px; }
+.group-meta { flex:1; }
+.group-name { font-weight:700; }
+.group-code { font-family:monospace; background:rgba(255,255,255,0.03); padding:6px 10px; border-radius:8px; }
+.actions { display:flex; gap:8px; }
+input.name-edit { padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text); }
+.muted { color: var(--muted); }
+.secondary { /* small secondary button style fallback */ padding:6px 10px; border-radius:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); }
+

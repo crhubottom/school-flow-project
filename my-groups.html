@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Groups</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./assets/css/my-groups.css" />
+</head>
+<body>
+  <main class="card">
+    <header style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <h1>My Groups</h1>
+      <div>
+        <button id="backBtn" class="secondary">Back</button>
+        <button id="refreshBtn" class="secondary">Refresh</button>
+      </div>
+    </header>
+
+    <section id="groupsWrap" style="margin-top:18px;"><div class="muted">Loading…</div></section>
+  </main>
+
+  <script type="module" src="./assets/js/app.js"></script>
+  <script>
+    const groupsWrap = document.getElementById('groupsWrap');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    async function render() {
+      groupsWrap.innerHTML = '<div class="muted">Loading…</div>';
+      try {
+        if (!window.firestoreHelpers) throw new Error('Helpers not ready');
+        const list = await window.firestoreHelpers.listUserGroups();
+        if (!list || list.length === 0) { groupsWrap.innerHTML = '<div class="muted">You are not in any groups.</div>'; return; }
+        groupsWrap.innerHTML = '';
+        list.forEach(g => {
+          const row = document.createElement('div'); row.className='group-row';
+          const meta = document.createElement('div'); meta.className='group-meta';
+          const name = document.createElement('div'); name.className='group-name'; name.textContent = g.data.name || 'Untitled Group';
+          const code = document.createElement('div'); code.className='group-code'; code.textContent = g.id;
+          meta.appendChild(name); meta.appendChild(code);
+
+          const actions = document.createElement('div'); actions.className='actions';
+          const openBtn = document.createElement('button'); openBtn.textContent = 'Open'; openBtn.addEventListener('click', () => { location.href = `group.html?code=${encodeURIComponent(g.id)}`; });
+          actions.appendChild(openBtn);
+
+          if (g.data.ownerUid === window.currentUser?.uid) {
+            const editBtn = document.createElement('button'); editBtn.textContent='Edit';
+            const nameInput = document.createElement('input'); nameInput.className='name-edit'; nameInput.value = g.data.name || '';
+            editBtn.addEventListener('click', async () => {
+              if (editBtn.textContent === 'Edit') { editBtn.textContent = 'Save'; name.replaceWith(nameInput); nameInput.focus(); }
+              else {
+                editBtn.disabled = true;
+                try {
+                  const updated = await window.firestoreHelpers.updateGroupName(g.id, nameInput.value.trim());
+                  name.textContent = updated.data.name || 'Untitled Group';
+                  nameInput.replaceWith(name);
+                  editBtn.textContent='Edit';
+                } catch (e) { alert(e?.message || 'Update failed'); }
+                finally { editBtn.disabled = false; }
+              }
+            });
+            actions.appendChild(editBtn);
+
+            const delBtn = document.createElement('button'); delBtn.textContent = 'Delete';
+            delBtn.addEventListener('click', async () => {
+              if (!confirm(`Delete group ${g.id}? This cannot be undone.`)) return;
+              delBtn.disabled = true;
+              try {
+                await window.firestoreHelpers.deleteGroup(g.id);
+                row.remove();
+              } catch (err) {
+                alert(err?.message || 'Failed to delete group');
+                delBtn.disabled = false;
+              }
+            });
+            actions.appendChild(delBtn);
+          }
+
+          row.appendChild(meta); row.appendChild(actions);
+          groupsWrap.appendChild(row);
+        });
+      } catch (e) { groupsWrap.innerHTML = `<div class="muted">${e?.message||'Failed to load groups'}</div>`; }
+    }
+
+    refreshBtn?.addEventListener('click', () => render());
+    backBtn?.addEventListener('click', () => location.href='home.html');
+
+    const ready = setInterval(() => {
+      if (window.firestoreHelpers && window.authReady) {
+        clearInterval(ready);
+        if (!window.currentUser) {
+          groupsWrap.innerHTML = '<div class="muted">Not signed in. Please <a href="index.html">sign in</a> first.</div>';
+          console.warn('my-groups: auth initialized but no user is signed in.');
+          return;
+        }
+        console.log('my-groups: auth ready, user:', window.currentUser?.uid);
+        render().catch(err => { console.error('my-groups render failed', err); groupsWrap.innerHTML = `<div class="muted">${(err && err.message) ? err.message : 'Failed to load groups'}</div>`; });
+      }
+    }, 200);
+  </script>
+</body>
+</html>

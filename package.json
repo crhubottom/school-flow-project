@@ -1,10 +1,10 @@
 {
   "name": "school-flow",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "School Flow — minimal Firebase Google login page (static)",
   "scripts": {
     "start": "http-server -p 5190",
+    "serve": "npm run start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "private": true,
