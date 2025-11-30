@@ -93,6 +93,7 @@
     const backBtn = document.getElementById('backBtn');
     let canManageFees = false;
     let isGroupOwner = false;
+    let memberProfiles = {};
     // Add Fee elements
     const addFeeBtn = document.getElementById('addFeeBtn');
     const addFeeForm = document.getElementById('addFeeForm');
@@ -114,7 +115,7 @@
       if (!code) { membersList.innerHTML = '<div class="muted">No code provided.</div>'; return; }
       groupCodeEl.textContent = code;
       try {
-        if (!window.firestoreHelpers) throw new Error('Helpers not ready');
+        if (!window.firestoreHelpers) throw new Error('Firebase helpers not loaded (app.js failed to execute).');
         const res = await window.firestoreHelpers.getGroup(code);
         const data = res.data;
         groupNameEl.textContent = data.name || 'Untitled Group';
@@ -142,12 +143,13 @@
           try {
             if (window.firestoreHelpers && typeof window.firestoreHelpers.getUsers === 'function') {
               profiles = await window.firestoreHelpers.getUsers(memberUids);
+              memberProfiles = profiles;
             }
           } catch (e) { /* non-blocking: we'll render UIDs */ }
 
           memberUids.forEach(uid => {
             const profile = profiles[uid] || {};
-            const row = document.createElement('div'); row.className = 'member';
+            const row = document.createElement('div'); row.className = 'member'; row.dataset.memberUid = uid;
             const left = document.createElement('div'); left.className = 'member-left';
             const img = document.createElement('img'); img.className = 'member-avatar';
             if (profile && profile.photoURL) img.src = profile.photoURL; else img.classList.add('member-avatar--placeholder');
@@ -156,9 +158,17 @@
             const sub = document.createElement('div'); sub.className = 'muted member-sub'; sub.textContent = (profile && profile.email) ? profile.email : '';
              label.appendChild(title); if (sub.textContent) label.appendChild(sub);
              left.appendChild(img); left.appendChild(label);
-             row.appendChild(left);
-             membersList.appendChild(row);
-          });
+
+            row.appendChild(left);
+            if (isGroupOwner && uid !== data.ownerUid) {
+              const actions = document.createElement('div'); actions.className = 'member-actions';
+              const kickBtn = document.createElement('button'); kickBtn.type = 'button'; kickBtn.className = 'secondary kick-btn'; kickBtn.textContent = 'Remove';
+              kickBtn.addEventListener('click', () => handleKick(uid, profile));
+              actions.appendChild(kickBtn);
+              row.appendChild(actions);
+            }
+            membersList.appendChild(row);
+           });
         }
         // load fees for the group
         await loadFees();
@@ -234,6 +244,18 @@
           feeFormError.textContent = err?.message || 'Failed to create fee'; feeFormError.style.display='block';
         }
       });
+    }
+
+    async function handleKick(memberUid, profile = {}) {
+      if (!code) return;
+      if (!window.firestoreHelpers || typeof window.firestoreHelpers.removeMember !== 'function') return;
+      if (!confirm(`Remove ${profile.displayName || memberUid} from this group?`)) return;
+      try {
+        await window.firestoreHelpers.removeMember(code, memberUid);
+        load();
+      } catch (err) {
+        alert(err?.message || 'Failed to remove member');
+      }
     }
 
     // Copy button handler

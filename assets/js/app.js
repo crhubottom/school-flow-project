@@ -377,7 +377,29 @@ async function deleteFee(code, feeId) {
     throw new Error(describeFSError(err));
   }
 }
-//leave group function
+async function removeMember(code, memberUid) {
+  if (!db) throw new Error('Database not initialized');
+  if (!auth) throw new Error('Auth not initialized');
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be signed in to remove members');
+  const clean = String(code || '').trim().toUpperCase();
+  if (!clean) throw new Error('Group code is required');
+  if (!memberUid) throw new Error('Member id is required');
+  try {
+    const ref = doc(db, 'groups', clean);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error('Group not found');
+    const data = snap.data();
+    if (data.ownerUid !== user.uid) throw new Error('Only the group owner can remove members');
+    if (memberUid === user.uid) throw new Error('Use leave group if you need to exit.');
+    if (!Array.isArray(data.members) || !data.members.includes(memberUid)) throw new Error('Member not found in group');
+    await updateDoc(ref, { members: arrayRemove(memberUid) });
+    return { id: clean, removed: memberUid };
+  } catch (err) {
+    throw new Error(describeFSError(err));
+  }
+}
+
 async function leaveGroup(code) {
   if (!db) throw new Error('Database not initialized');
   if (!auth) throw new Error('Auth not initialized');
@@ -483,6 +505,7 @@ window.firestoreHelpers = {
   getUsers,
   createFee,
   deleteFee,
+  removeMember,
   leaveGroup,
   setFeeStatus,
   listGroupFees,
