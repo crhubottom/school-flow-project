@@ -15,11 +15,16 @@
       <h1>School Flow</h1>
     </div>
     <section id="duesPanel" class="dues-panel" aria-label="Upcoming dues">
-      <h2>Your upcoming dues</h2>
-      <div class="empty">No dues to show.</div>
+      <div class="dues-header">
+        <h2>Your upcoming dues</h2>
+        <span id="duesStatusText" class="muted" role="status" aria-live="polite"></span>
+      </div>
+      <div id="duesContent" class="dues-content">
+        <div class="empty">No dues to show.</div>
+      </div>
     </section>
   </div>
-  <!-- Centered join box overlay -->
+  <!--join box -->
   <div class="join-overlay" aria-label="Join group panel">
     <section class="join-group" aria-label="Join an existing group">
       <h2>Join a Group</h2>
@@ -52,12 +57,12 @@
       <h2 id="createGroupTitle">Create Group</h2>
       <p class="muted" style="margin:0;">Set up a new group. You'll be the admin. Share the generated code so others can join.</p>
       <div class="field">
-        <label for="groupNameInput">Group Name (optional)</label>
-        <input id="groupNameInput" type="text" placeholder="e.g. Math Club" maxlength="60" />
+        <label for="groupNameInput">Group Name</label>
+        <input id="groupNameInput" type="text" placeholder="e.g. Cloud Computing Class" maxlength="60" />
       </div>
       <div id="createStatus" class="create-status" role="status"></div>
       <div id="createdCodeWrap" style="display:none; flex-direction:column; gap:8px;">
-        <label style="font-size:0.65rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--muted);">Join Code</label>
+        <label style="font-size:0.65rem; letter-spacing:0.5px; text-transform:uppercase; color:#666;">Join Code</label>
         <div class="code-box"><span id="createdCode">------</span></div>
       </div>
       <div class="modal-actions">
@@ -69,88 +74,152 @@
   <noscript>This page requires JavaScript.</noscript>
   <script type="module" src="./assets/js/app.js"></script>
   <script>
-     const avatarBtn = document.getElementById('avatarBtn');
-     const dropdown = document.getElementById('dropdown');
-     const logoutBtn = document.getElementById('logoutBtn');
-     const createGroupBtn = document.getElementById('createGroupBtn');
-     const groupCodeInput = document.getElementById('groupCodeInput');
-     const joinGroupBtn = document.getElementById('joinGroupBtn');
-     const joinStatus = document.getElementById('joinStatus');
+    const duesPanel = document.getElementById('duesPanel');
+    const duesContent = document.getElementById('duesContent');
+    const duesStatusText = document.getElementById('duesStatusText');
+    const avatarBtn = document.getElementById('avatarBtn');
+    const dropdown = document.getElementById('dropdown');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const createGroupBtn = document.getElementById('createGroupBtn');
+    const myGroupsBtn = document.getElementById('myGroupsBtn');
+    const groupCodeInput = document.getElementById('groupCodeInput');
+    const joinGroupBtn = document.getElementById('joinGroupBtn');
+    const joinStatus = document.getElementById('joinStatus');
 
-     const createGroupModal = document.getElementById('createGroupModal');
-     const confirmCreateGroupBtn = document.getElementById('confirmCreateGroupBtn');
-     const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
-     const groupNameInput = document.getElementById('groupNameInput');
-     const createStatus = document.getElementById('createStatus');
-     const createdCodeWrap = document.getElementById('createdCodeWrap');
-     const createdCodeSpan = document.getElementById('createdCode');
+    const createGroupModal = document.getElementById('createGroupModal');
+    const confirmCreateGroupBtn = document.getElementById('confirmCreateGroupBtn');
+    const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
+    const groupNameInput = document.getElementById('groupNameInput');
+    const createStatus = document.getElementById('createStatus');
+    const createdCodeWrap = document.getElementById('createdCodeWrap');
+    const createdCodeSpan = document.getElementById('createdCode');
 
     function setJoinStatus(msg, isError=false){ if(!joinStatus) return; joinStatus.textContent = msg || ''; joinStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'; }
     function setCreateStatus(msg, isError=false){ if(!createStatus) return; createStatus.textContent = msg || ''; createStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'; }
 
-    function openMenu() { dropdown.classList.add('open'); avatarBtn?.setAttribute('aria-expanded','true'); document.addEventListener('click', outsideClose); document.addEventListener('keydown', escClose); }
-    function closeMenu() { dropdown.classList.remove('open'); avatarBtn?.setAttribute('aria-expanded','false'); document.removeEventListener('click', outsideClose); document.removeEventListener('keydown', escClose); }
-    function toggleMenu() { dropdown.classList.contains('open') ? closeMenu() : openMenu(); }
-    function outsideClose(e){ if(!dropdown.contains(e.target) && e.target !== avatarBtn && !avatarBtn?.contains(e.target)) closeMenu(); }
-    function escClose(e){ if(e.key === 'Escape') closeMenu(); }
+    function toggleMenu() { dropdown.classList.contains('open') ? dropdown.classList.remove('open') : dropdown.classList.add('open'); }
     avatarBtn?.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
+    logoutBtn?.addEventListener('click', async () => { logoutBtn.disabled = true; try { await window.doSignOut(); location.replace('index.html'); } catch (e) { console.error(e); } finally { logoutBtn.disabled = false; } });
 
-    logoutBtn?.addEventListener('click', async () => {
-      logoutBtn.disabled = true;
-      try { await window.doSignOut(); location.replace('index.html'); }
-      catch (e){ console.error('Sign out failed', e); }
-      finally { logoutBtn.disabled = false; }
-    });
+    //render dues
+    function renderDues(items) {
+      if (!duesContent) return;
+      if (!items || items.length === 0) {
+        duesContent.innerHTML = '<div class="empty">No dues to show.</div>';
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      items.forEach(i => {
+        const row = document.createElement('div'); row.className = 'due';
+        const left = document.createElement('div'); left.className = 'due-left';
+        const title = document.createElement('div'); title.className = 'due-group'; title.textContent = i.groupName || i.groupId;
+        const desc = document.createElement('div'); desc.className = 'muted due-desc'; desc.textContent = i.fee.description || 'Fee';
+        left.appendChild(title); left.appendChild(desc);
+        const right = document.createElement('div'); right.className = 'due-right';
+        const amountVal = Number(i.fee.amount || 0);
+        const amt = document.createElement('div'); amt.className = 'due-amount'; amt.textContent = `${i.fee.currency || 'USD'} ${amountVal.toFixed(2)}`;
+        const due = document.createElement('div'); due.className = 'muted due-date'; due.textContent = i.fee.dueDate ? new Date(i.fee.dueDate).toLocaleDateString() : 'Due anytime';
+        const completeBtn = document.createElement('button'); completeBtn.className = 'due-check'; completeBtn.type = 'button'; completeBtn.setAttribute('aria-label', 'Mark as paid'); completeBtn.textContent = '✓';
+        completeBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          markDueAsPaid(i, completeBtn);
+        });
+        right.appendChild(amt); right.appendChild(due); right.appendChild(completeBtn);
+        row.appendChild(left); row.appendChild(right);
+        row.addEventListener('click', () => { window.location.href = `group.html?code=${encodeURIComponent(i.groupId)}`; });
+        frag.appendChild(row);
+      });
+      duesContent.innerHTML = '';
+      duesContent.appendChild(frag);
+    }
+    //mark due as paid button
+    async function markDueAsPaid(item, button) {
+      if (!window.firestoreHelpers || typeof window.firestoreHelpers.setFeeStatus !== 'function') return;
+      if (!window.currentUser) return;
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = '…';
+      try {
+        await window.firestoreHelpers.setFeeStatus(item.groupId, item.feeId, 'paid');
+        button.classList.add('due-check--done');
+        button.textContent = '✓';
+        setTimeout(() => loadDues(), 250);
+      } catch (err) {
+        console.error('markDueAsPaid failed', err);
+        button.disabled = false;
+        button.textContent = original;
+        alert(err?.message || 'Failed to update fee');
+      }
+    }
+  //set dues status text
+    function setDuesStatus(text) {
+      if (duesStatusText) duesStatusText.textContent = text || '';
+    }
+  //load dues function
+    async function loadDues() {
+      if (!window.firestoreHelpers || typeof window.firestoreHelpers.listUpcomingFeesForUser !== 'function') return;
+      if (!window.currentUser) {
+        setDuesStatus('');
+        if (duesContent) duesContent.innerHTML = '<div class="muted">Sign in to see dues.</div>';
+        return;
+      }
+      setDuesStatus('Loading…');
+      if (duesContent) duesContent.innerHTML = '<div class="muted">Loading dues…</div>';
+      try {
+        const res = await window.firestoreHelpers.listUpcomingFeesForUser();
+        const items = res?.items || [];
+        const errors = res?.errors || [];
+        renderDues(items);
+        setDuesStatus(items.length ? `${items.length} due${items.length === 1 ? '' : 's'} pending` : 'All caught up');
+        if (errors.length > 0 && duesContent) {
+          const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize='0.8rem';
+          note.textContent = `Some groups could not be read (${errors.length}).`;
+          duesContent.appendChild(note);
+        }
+      } catch (e) {
+        console.error('loadDues error', e);
+        if (duesContent) duesContent.innerHTML = '<div class="empty">Unable to load dues.</div>';
+        setDuesStatus('Check your connection');
+      }
+    }
 
+    //wait for auth ready
     const readyInterval = setInterval(() => {
-      if (window.firestoreHelpers && window.currentUser !== undefined) {
+      if (window.firestoreHelpers && window.authReady === true) {
         clearInterval(readyInterval);
-        if (window.currentUser) document.getElementById('userMenu').hidden = false;
+        if (window.currentUser) {
+          document.getElementById('userMenu').hidden = false;
+          loadDues();
+        } else if (duesContent) {
+          duesContent.innerHTML = '<div class="muted">Sign in to see dues.</div>';
+          setDuesStatus('');
+        }
       }
     }, 200);
 
-    const myGroupsBtn = document.getElementById('myGroupsBtn');
-    myGroupsBtn?.addEventListener('click', () => { window.location.href = 'my-groups.html'; });
-
-    if (createGroupBtn) createGroupBtn.onclick = () => openCreateModal();
-    document.addEventListener('click', (e) => { const btn = e.target && e.target.closest && e.target.closest('#createGroupBtn'); if (btn) openCreateModal(); });
-
+    // Join/create handlers
     groupCodeInput?.addEventListener('input', () => { const v = groupCodeInput.value.trim(); joinGroupBtn.disabled = v.length === 0; setJoinStatus(''); });
     joinGroupBtn?.addEventListener('click', async () => {
-      const code = groupCodeInput.value.trim(); if(!code) return; joinGroupBtn.disabled = true; setJoinStatus('Attempting to join group…');
-      try {
-        const res = await window.firestoreHelpers.joinGroup(code);
-        setJoinStatus(`Joined group ${code}!`, false);
-        window.location.href = `group.html?code=${encodeURIComponent(code)}`;
-      } catch(e){ console.error(e); setJoinStatus(e?.message || 'Failed to join group.', true); }
+      const code = groupCodeInput.value.trim(); if (!code) return; joinGroupBtn.disabled = true; setJoinStatus('Attempting to join group…');
+      try { await window.firestoreHelpers.joinGroup(code); setJoinStatus(`Joined group ${code}!`, false); window.location.href = `group.html?code=${encodeURIComponent(code)}`; }
+      catch (e) { console.error(e); setJoinStatus(e?.message || 'Failed to join group.', true); }
       finally { joinGroupBtn.disabled = false; }
     });
 
     function openCreateModal(){ createGroupModal.style.display='grid'; createGroupModal.setAttribute('aria-hidden','false'); groupNameInput.value=''; createdCodeWrap.style.display='none'; createdCodeSpan.textContent='------'; setCreateStatus(''); confirmCreateGroupBtn.disabled=false; setTimeout(()=> { try{ groupNameInput.focus(); }catch(e){} }, 60); }
     function closeCreateModal(){ createGroupModal.style.display='none'; createGroupModal.setAttribute('aria-hidden','true'); }
-
-    async function createGroup() {
-      if (!window.currentUser) throw new Error('Not signed in');
-      if (!window.firestoreHelpers) throw new Error('Database helpers not ready');
-      const name = groupNameInput.value.trim();
-      return await window.firestoreHelpers.createGroup(name);
-    }
+    if (createGroupBtn) createGroupBtn.addEventListener('click', openCreateModal);
+    closeCreateModalBtn?.addEventListener('click', () => closeCreateModal());
 
     confirmCreateGroupBtn?.addEventListener('click', async () => {
       if (!window.currentUser) { setCreateStatus('Not signed in.', true); return; }
-      const prevDisplay = createGroupModal.style.display;
-      createdCodeSpan.textContent = '';
-      if (createdCodeWrap) createdCodeWrap.style.display = 'none';
-      createGroupModal.style.display = 'none';
-      try {
-        const res = await createGroup();
-        window.location.replace(`group.html?code=${encodeURIComponent(res.code)}`);
-      } catch (err) {
-        createGroupModal.style.display = prevDisplay || 'grid';
-        setCreateStatus(err?.message || 'Failed to create group.', true);
-      }
+      const prev = createGroupModal.style.display; createGroupModal.style.display='none'; setCreateStatus('Creating...');
+      try { const res = await window.firestoreHelpers.createGroup(groupNameInput.value.trim()); window.location.replace(`group.html?code=${encodeURIComponent(res.code)}`); }
+      catch (e) { createGroupModal.style.display = prev || 'grid'; setCreateStatus(e?.message || 'Failed to create group.', true); }
+      finally { confirmCreateGroupBtn.disabled = false; }
     });
-    closeCreateModalBtn?.addEventListener('click', () => closeCreateModal());
+
+    myGroupsBtn?.addEventListener('click', () => { window.location.href = 'my-groups.html'; });
   </script>
- </body>
- </html>
+</body>
+</html>

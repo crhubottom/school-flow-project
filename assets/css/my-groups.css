@@ -6,5 +6,5 @@
 .actions { display:flex; gap:8px; }
 input.name-edit { padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text); }
 .muted { color: var(--muted); }
-.secondary { /* small secondary button style fallback */ padding:6px 10px; border-radius:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); }
+.secondary {padding:6px 10px; border-radius:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); }
 

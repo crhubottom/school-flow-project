@@ -10,9 +10,19 @@ body { align-items: center; justify-content: flex-start; padding-top: 36px; }
 .avatar-btn { appearance: none; background: transparent; border: none; padding: 0; cursor: pointer; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
 .avatar-img { width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,0.14); object-fit:cover; }
 .dropdown { position: absolute; top: 60px; right: 0; background: var(--panel); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; min-width: 220px; padding: 8px 0; box-shadow: 0 18px 40px -10px rgba(0,0,0,.5); display: none; }
+.dropdown.open { display:block; }
 .member-left { display:flex; align-items:center; gap:10px; }
 .member-avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; }
 .member-avatar--placeholder { background: rgba(255,255,255,0.04); }
 .member-label { display:flex; flex-direction:column; }
 .member-sub { font-size:0.8rem; }
+.fees-section { margin-top:28px; display:flex; flex-direction:column; gap:14px; }
+.fees-list { display:flex; flex-direction:column; gap:10px; }
+.fee-row { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.02); }
+.fee-left { display:flex; flex-direction:column; gap:4px; }
+.fee-desc { font-weight:600; }
+.fee-date { font-size:0.8rem; }
+.fee-actions { display:flex; align-items:center; gap:12px; }
+.fee-amount { font-weight:700; }
+.fee-delete { padding:6px 12px; }
 @media (max-width: 640px) { .card { padding: 16px; } }

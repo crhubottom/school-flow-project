@@ -1,10 +1,22 @@
-/* Home page overrides */
 body { align-items: stretch; flex-direction: row; }
-.sidebar { width:280px; background:rgba(255,255,255,0.03); border-right:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; padding:24px 20px; box-sizing:border-box; gap:24px; }
+.sidebar { width:320px; background:rgba(255,255,255,0.03); border-right:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; padding:24px 20px; box-sizing:border-box; gap:24px; }
 .brand { display:flex; flex-direction:column; gap:14px; }
 .brand h1 { margin:0; font-size:1.3rem; }
-.dues-panel { background:transparent; border:0; padding:0; display:flex; flex-direction:column; }
-.dues-panel h2 { margin:0 0 12px; font-size:1.05rem; letter-spacing:0.3px; }
+.dues-panel { background:transparent; border:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+.dues-panel .dues-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.dues-panel h2 { margin:0; font-size:1.05rem; letter-spacing:0.3px; }
+.dues-content { display:flex; flex-direction:column; gap:10px; }
+.dues-content .due { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.04); cursor:pointer; transition:background 120ms ease; }
+.dues-content .due:hover { background:rgba(255,255,255,0.07); }
+.due-left { display:flex; flex-direction:column; gap:4px; }
+.due-group { font-weight:600; }
+.due-desc { font-size:0.8rem; }
+.due-right { text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+.due-amount { font-weight:600; }
+.due-date { font-size:0.8rem; }
+.due-check { margin-top:4px; appearance:none; border:1px solid rgba(255,255,255,0.2); background:transparent; color:var(--success); border-radius:50%; width:26px; height:26px; font-weight:700; font-size:0.85rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 120ms ease, color 120ms ease; }
+.due-check:hover { background:rgba(16,185,129,0.15); }
+.due-check--done { background:var(--success); color:#0f172a; border-color:var(--success); }
 .dues-panel .empty { font-size:0.8rem; color:var(--muted); }
 .user-menu { position:fixed; top:16px; right:24px; z-index:100; display:flex; align-items:center; gap:14px; }
 .avatar-btn { appearance:none; background:transparent; border:none; padding:0; cursor:pointer; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }

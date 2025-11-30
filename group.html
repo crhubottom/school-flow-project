@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./assets/css/group.css" />
 </head>
 <body>
-  <!-- user menu (avatar + dropdown) -->
+  <!-- user menu -->
   <div class="user-menu" id="userMenu" hidden aria-label="User actions">
     <button id="avatarBtn" class="avatar-btn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
       <img id="avatarImg" class="avatar-img" alt="User avatar" src="" loading="lazy" decoding="async" />
@@ -36,6 +36,7 @@
         <button id="backBtn" class="secondary" type="button">Back</button>
         <div class="code" id="groupCode">------</div>
         <button id="copyGroupCodeBtn" class="secondary" type="button" aria-label="Copy join code">Copy</button>
+        <button id="addFeeBtn" class="primary" type="button" hidden>Add Fee</button>
       </div>
     </div>
 
@@ -44,13 +45,42 @@
       <div id="membersList" class="members"><div class="muted">Loading…</div></div>
     </section>
 
+    <section class="fees-section" style="margin-top:28px;">
+      <div class="fees-header">
+        <h2>Group Fees</h2>
+        <!-- button already rendered in header above for layout consistency -->
+      </div>
+      <div id="feesList" class="fees-list"><div class="muted">Loading fees…</div></div>
+    </section>
+
     <section style="margin-top:18px;">
       <button id="leaveGroupBtn" class="secondary">Leave Group</button>
     </section>
   </main>
 
+  <!-- Add Fee Modal -->
+  <div id="addFeeModal" class="modal" hidden aria-hidden="true" role="dialog" aria-labelledby="addFeeTitle">
+    <div class="modal-content">
+      <h3 id="addFeeTitle">Add Fee</h3>
+      <form id="addFeeForm">
+        <label>Amount <input id="feeAmount" name="amount" type="number" step="0.01" min="0" required></label>
+        <label>Description <input id="feeDescription" name="description" type="text" maxlength="200" placeholder="e.g. Field trip bus"></label>
+        <label>Due date <input id="feeDueDate" name="dueDate" type="date"></label>
+        <div style="margin-top:10px">
+          <button id="submitFeeBtn" class="primary" type="submit">Create Fee</button>
+          <button id="cancelFeeBtn" class="secondary" type="button">Cancel</button>
+        </div>
+        <div id="feeFormError" class="muted" style="color:var(--danger);margin-top:8px;display:none"></div>
+      </form>
+    </div>
+  </div>
+
   <script type="module" src="./assets/js/app.js"></script>
   <script>
+    // Modal helpers for Add Fee
+    function showAddFeeModal() { const m = document.getElementById('addFeeModal'); if(!m) return; m.hidden = false; m.setAttribute('aria-hidden','false'); }
+    function hideAddFeeModal() { const m = document.getElementById('addFeeModal'); if(!m) return; m.hidden = true; m.setAttribute('aria-hidden','true'); }
+
     // Read code from query string
     function qs(name){ const params = new URLSearchParams(location.search); return params.get(name); }
     const code = qs('code');
@@ -61,6 +91,14 @@
     const copyBtn = document.getElementById('copyGroupCodeBtn');
     const leaveBtn = document.getElementById('leaveGroupBtn');
     const backBtn = document.getElementById('backBtn');
+    let canManageFees = false;
+    let isGroupOwner = false;
+    // Add Fee elements
+    const addFeeBtn = document.getElementById('addFeeBtn');
+    const addFeeForm = document.getElementById('addFeeForm');
+    const cancelFeeBtn = document.getElementById('cancelFeeBtn');
+    const feeFormError = document.getElementById('feeFormError');
+    const feesList = document.getElementById('feesList');
 
     // Dropdown elements
     const userMenu = document.getElementById('userMenu');
@@ -70,7 +108,7 @@
     const ddName = document.getElementById('ddName');
     const ddEmail = document.getElementById('ddEmail');
     const logoutBtn = document.getElementById('logoutBtn');
-
+  // loads and renders group info and members
     async function load() {
       if (!code) { membersList.innerHTML = '<div class="muted">No code provided.</div>'; return; }
       groupCodeEl.textContent = code;
@@ -80,6 +118,19 @@
         const data = res.data;
         groupNameEl.textContent = data.name || 'Untitled Group';
         groupOwnerEl.textContent = data.ownerDisplayName || data.ownerUid || '—';
+        // Show Add Fee button only to group owner or admins (if group defines admins array)
+        try {
+          const me = window.currentUser;
+          canManageFees = false;
+          isGroupOwner = false;
+          if (addFeeBtn) addFeeBtn.hidden = true;
+          if (me && data) {
+            isGroupOwner = !!(data.ownerUid && me.uid === data.ownerUid);
+            const isAdminArray = Array.isArray(data.admins) && data.admins.includes(me.uid);
+            canManageFees = isGroupOwner || isAdminArray;
+            if (isGroupOwner && addFeeBtn) addFeeBtn.hidden = false;
+          }
+        } catch (e) { /* non-blocking */ }
         membersList.innerHTML = '';
         const memberUids = Array.isArray(data.members) ? data.members : [];
         if (memberUids.length === 0) {
@@ -108,7 +159,80 @@
              membersList.appendChild(row);
           });
         }
-      } catch (e) { membersList.innerHTML = `<div class="muted">${e?.message||'Failed to load group'}</div>`; }
+        // load fees for the group
+        await loadFees();
+      } catch (e) { membersList.innerHTML = `<div class="muted">${e?.message||'Failed to load group'}</div>`; feesList.innerHTML = '<div class="muted">Failed to load fees</div>'; }
+    }
+  // loads and renders fees
+    async function loadFees() {
+      if (!feesList) return;
+      feesList.innerHTML = '<div class="muted">Loading fees…</div>';
+      try {
+        const items = await window.firestoreHelpers.listGroupFees(code);
+        if (!items.length) { feesList.innerHTML = '<div class="muted">No fees yet.</div>'; return; }
+        feesList.innerHTML = '';
+        items.forEach(item => {
+          const row = document.createElement('div'); row.className = 'fee-row';
+          const left = document.createElement('div'); left.className = 'fee-left';
+          const title = document.createElement('div'); title.className = 'fee-desc'; title.textContent = item.data.description || 'Fee';
+          const due = document.createElement('div'); due.className = 'fee-date muted';
+          due.textContent = item.data.dueDate ? `Due ${new Date(item.data.dueDate).toLocaleDateString()}` : 'Due anytime';
+          left.appendChild(title); left.appendChild(due);
+          const right = document.createElement('div'); right.className = 'fee-actions';
+          const amt = document.createElement('div'); amt.className = 'fee-amount';
+          amt.textContent = `${item.data.currency || 'USD'} ${Number(item.data.amount || 0).toFixed(2)}`;
+          right.appendChild(amt);
+          if (canManageFees) {
+            const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'secondary fee-delete'; delBtn.textContent = 'Delete';
+            delBtn.addEventListener('click', async () => {
+              if (!confirm('Delete this fee?')) return;
+              delBtn.disabled = true;
+              try {
+                await window.firestoreHelpers.deleteFee(code, item.id);
+                loadFees();
+              } catch (err) {
+                alert(err?.message || 'Failed to delete fee');
+                delBtn.disabled = false;
+              }
+            });
+            right.appendChild(delBtn);
+          }
+          row.appendChild(left); row.appendChild(right);
+          feesList.appendChild(row);
+        });
+      } catch (err) {
+        console.error('loadFees error', err);
+        feesList.innerHTML = `<div class="muted">${err?.message || 'Unable to load fees'}</div>`;
+      }
+    }
+
+    //sets up fee modal
+    function setupAddFeeHandlers() {
+      if (addFeeBtn) addFeeBtn.addEventListener('click', () => { feeFormError.style.display='none'; showAddFeeModal(); });
+      if (cancelFeeBtn) cancelFeeBtn.addEventListener('click', () => { hideAddFeeModal(); });
+      if (addFeeForm) addFeeForm.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        feeFormError.style.display='none';
+        const amtEl = document.getElementById('feeAmount');
+        const descEl = document.getElementById('feeDescription');
+        const dueEl = document.getElementById('feeDueDate');
+        const amount = Number(amtEl?.value || 0);
+        const description = String(descEl?.value || '').trim();
+        const dueDate = dueEl?.value ? new Date(dueEl.value) : null;
+        if (!amount || amount <= 0) {
+          feeFormError.textContent = 'Please enter a valid amount greater than 0.'; feeFormError.style.display='block'; return;
+        }
+        try {
+          if (!window.firestoreHelpers || typeof window.firestoreHelpers.createFee !== 'function') throw new Error('Create fee helper not available');
+          await window.firestoreHelpers.createFee(code, { amount, description, dueDate });
+          hideAddFeeModal();
+          alert('Fee created');
+          loadFees();
+          load();
+        } catch (err) {
+          feeFormError.textContent = err?.message || 'Failed to create fee'; feeFormError.style.display='block';
+        }
+      });
     }
 
     // Copy button handler
@@ -131,10 +255,22 @@
 
     // Leave group (placeholder)
     leaveBtn?.addEventListener('click', async () => {
+      if (!window.firestoreHelpers || typeof window.firestoreHelpers.leaveGroup !== 'function') {
+        alert('Leave group is not available.');
+        return;
+      }
+      if (!code) return;
       if (!confirm('Leave this group?')) return;
+      leaveBtn.disabled = true;
       try {
-        alert('Leave group is not implemented yet.');
-      } catch (e) { alert('Failed to leave group'); }
+        await window.firestoreHelpers.leaveGroup(code);
+        alert('You have left the group.');
+        window.location.href = 'home.html';
+      } catch (err) {
+        alert(err?.message || 'Failed to leave group');
+      } finally {
+        leaveBtn.disabled = false;
+      }
     });
 
     // Dropdown handlers
@@ -164,6 +300,8 @@
             avatarImg.alt = (window.currentUser.displayName || 'User') + ' avatar';
           }
         }
+        // Setup add-fee handlers and then load group
+        try { setupAddFeeHandlers(); } catch (e) {}
         load();
       }
     }, 200);
