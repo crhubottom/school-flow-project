@@ -108,7 +108,8 @@
     const ddName = document.getElementById('ddName');
     const ddEmail = document.getElementById('ddEmail');
     const logoutBtn = document.getElementById('logoutBtn');
-  // loads and renders group info and members
+
+    // loads and renders group info and members
     async function load() {
       if (!code) { membersList.innerHTML = '<div class="muted">No code provided.</div>'; return; }
       groupCodeEl.textContent = code;
